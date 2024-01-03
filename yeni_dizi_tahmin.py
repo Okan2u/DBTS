@@ -2,26 +2,31 @@ import pandas as pd
 from sklearn.linear_model import LinearRegression
 from sklearn.impute import SimpleImputer
 
-
+# Verilen sütuna göre skor hesaplayan fonksiyon
 def calculate_score(df, column):
+    # Sütundaki değerlerin sıklıklarını hesapla
     scores = df[column].value_counts().to_dict()
+    # Her değeri, sıklığına göre skora dönüştür ve yeni bir sütuna ekle
     df[column + '_score'] = df[column].map(scores)
+    # Skorları normalize et (maksimum skora bölerek)
     df[column + '_score'] = df[column + '_score'] / df[column + '_score'].max()
     return df
 
-
+# Sayısal bir sütun için normalleştirilmiş skor hesaplayan fonksiyon
 def calculate_numeric_score(df, column):
+    # Sayısal değerleri maksimum değere göre normalize et ve yeni bir sütuna ekle
     df[column + '_score'] = df[column] / df[column].max()
     return df
 
-
+# Eksik sayısal değerleri ortalama ile dolduran fonksiyon
 def impute_missing_values(df):
     numeric_columns = ['Gösterim Süresi', 'Sezon Sayısı', 'Bölüm Sayısı']
     imputer = SimpleImputer(strategy='mean')
+    # Belirli sayısal sütunlardaki eksik değerleri ortalama ile doldur
     df[numeric_columns] = imputer.fit_transform(df[numeric_columns])
     return df
 
-
+# Yıllık başarı skorlarını hesaplayan fonksiyon
 def calculate_yearly_comparison(df):
     df['Yearly_Success_Score'] = 0.0
     imputer = SimpleImputer(strategy='mean')
@@ -51,20 +56,22 @@ def calculate_yearly_comparison(df):
 
     return df
 
-
+# Boş başarı skorlarını dolduran fonksiyon
 def fill_empty_success_scores(df):
     scores_columns = ['Format_score', 'Tür_score', 'Kanal_score', 'Yapım Şirketi_score',
                       'Gösterim Süresi_score', 'Sezon Sayısı_score', 'Bölüm Sayısı_score', 'Yearly_Success_Score']
+    # Belirli sütunlardaki skorların ortalamasını al ve yeni bir sütuna ekle
     df['Overall_Success_Score'] = df[scores_columns].mean(axis=1)
     return df
 
-
+# Başarı yüzdesini formatlayan fonksiyon
 def format_success_percentage(df):
     df[['Dizi Adı', 'Overall_Success_Score']] = df[['Dizi Adı', 'Overall_Success_Score']].astype(str)
+    # Başarı yüzdesini yuvarlayarak ve yüzde formatına çevirerek yeni bir sütuna ekle
     df['Overall_Success_Score'] = (df['Overall_Success_Score'].astype(float) * 200).round(2).astype(str) + '%'
     return df
 
-
+# Yeni bir dizi için başarı yüzdesi ve durumunu hesaplayan fonksiyon
 def calculate_new_dizi_success_percentage(df, new_dizi):
     # Yeni dizi bilgilerini dataframe'e ekleme
     df = pd.concat([df, pd.DataFrame([new_dizi])], ignore_index=True)
@@ -102,7 +109,7 @@ def calculate_new_dizi_success_percentage(df, new_dizi):
 
     return success_percentage, durum
 
-
+# Ana program fonksiyonu
 def main():
     df = pd.read_excel('turk_dizileri.xlsx')
 
@@ -135,10 +142,10 @@ def main():
         'Yapım Yılı': int(input('Yapım Yılı: '))
     }
 
+    # Yeni dizi başarı yüzdesini ve durumunu hesapla
     _, durum = calculate_new_dizi_success_percentage(df, new_dizi)
     print(f"Dizi Durumu: {durum}")
 
-
+# Ana programı çalıştır
 if __name__ == "__main__":
     main()
-

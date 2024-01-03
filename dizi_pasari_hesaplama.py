@@ -82,7 +82,7 @@ def fill_empty_success_scores(df):
     scores_columns = ['Format_score', 'Tür_score', 'Kanal_score', 'Yapım Şirketi_score',
                       'Gösterim Süresi_score', 'Sezon Sayısı_score', 'Bölüm Sayısı_score', 'Yearly_Success_Score']
 
-    df['Overall_Success_Score'] = df[scores_columns].mean(axis=1) * 2  # Başarı skorlarını 2 ile çarp
+    df['Overall_Success_Score'] = df[scores_columns].mean(axis=1) * 2
     return df
 
 

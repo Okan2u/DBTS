@@ -1,88 +1,69 @@
+# Gerekli kütüphanelerin import edilmesi
+import requests
+from bs4 import BeautifulSoup as bs
+import urllib.parse
 import pandas as pd
-from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LinearRegression
-from sklearn.impute import SimpleImputer
 
-from dizi_pasari_hesaplama import format_success_percentage, calculate_numeric_score, calculate_score, sort_by_year, \
-    impute_missing_values
+# Hedef web sayfasının URL'si
+adres = "https://tr.wikipedia.org/wiki/T%C3%BCrk_dizileri_listesi"
+
+# Tarayıcı bilgisi içeren başlık bilgisi
+baslik = {
+    'user-agent': "..."}
+
+# Web sayfasından içerik çekme
+sayfa = requests.get(adres, headers=baslik)
+icerik = bs(sayfa.content, 'html.parser')
+
+# Web sayfasından tüm tabloları çekme
+tablo_listesi = icerik.find_all('table', {'class': 'wikitable'})
 
 
-# Adım 3: Yıllık Karşılaştırma ve Boş Başarı Skorları Doldurma
+# Belirli bir diziye ait bilgileri çeken fonksiyon
+def dizi_bilgileri_cek(dizi_url):
+    bilgiler = {}
+    sayfa = requests.get(dizi_url, headers=baslik)
+    icerik = bs(sayfa.content, 'html.parser')
+    infobox = icerik.find('table', {'class': 'infobox'})
+    if infobox:
+        for row in infobox.find_all('tr'):
+            header = row.find('th')
+            if header:
+                header_text = header.get_text().strip()
+                value = row.find('td')
+                if value and header_text in istenen_bilgiler:
+                    value_text = value.get_text().strip()
+                    bilgiler[header_text] = value_text
+    return bilgiler
 
-def calculate_yearly_comparison(df):
-    """
-    Yıllık karşılaştırmayı yaparak, her dizi için yıllık başarı skorunu hesaplar.
-    """
-    df['Yearly_Success_Score'] = 0.0  # Başlangıçta tüm yıllık başarı skorlarını 0 olarak ayarla
-    imputer = SimpleImputer(strategy='mean')  # Eksik değerleri ortalama ile doldur
 
-    for year in df['Yapım Yılı'].unique():
-        subset = df[df['Yapım Yılı'] == year]
-        subset_index = subset.index.tolist()
+# Çekmek istenen dizi bilgilerinin listesi
+istenen_bilgiler = ['Format', 'Tür', 'Senarist', 'Yönetmen', 'Başrol', 'Gösterim süresi',
+                    'Kanal', 'Durumu', 'Besteci', 'Sezon sayısı', 'Bölüm sayısı', 'Yapımcı',
+                    'Yapım şirketi', 'Yayın tarihi', 'Platform']
 
-        # Önceki yıllardaki verileri eğitim verisi olarak kullan
-        previous_years = df[df['Yapım Yılı'] < year]
-        training_data = previous_years.drop(subset_index, errors='ignore')
+dizi_listesi = []
 
-        # Eğitim verisi varsa, modeli eğit
-        if not training_data.empty:
-            numeric_columns = ['Gösterim Süresi', 'Sezon Sayısı', 'Bölüm Sayısı']
-            X_train = training_data[numeric_columns]
-            X_test = subset[numeric_columns]
+# Ana sayfadaki her tabloyu ve içindeki dizileri dolaşan döngü
+for tablo in tablo_listesi:
+    satirlar = tablo.find_all('tr')
+    for i in range(len(satirlar)):
+        satir = satirlar[i]
+        hücreler = satir.find_all(['th', 'td'])
+        dizi_linki = hücreler[0].find('a', href=True)
+        if dizi_linki:
+            dizi_adı = dizi_linki.get_text().strip()
+            dizi_url = urllib.parse.urljoin(adres, dizi_linki['href'])
+            bilgiler = dizi_bilgileri_cek(dizi_url)
+            bilgiler['Dizi Adı'] = dizi_adı
+            dizi_listesi.append(bilgiler)
 
-            # Eksik değerleri doldur
-            X_train_imputed = imputer.fit_transform(X_train)
-            X_test_imputed = imputer.transform(X_test)
+# Elde edilen bilgileri bir DataFrame'e dönüştürme
+df = pd.DataFrame(dizi_listesi)
 
-            y_train = training_data['Yearly_Success_Score']
+# DataFrame'i Excel dosyası olarak kaydetme
+excel_adı = 'turk_dizileri.xlsx'
+df.to_excel(excel_adı, index=False)
 
-            # Lineer Regresyon modelini eğit
-            model = LinearRegression()
-            model.fit(X_train_imputed, y_train)
-
-            # Test verileri için tahminler yap ve güncelle
-            subset.loc[:, 'Yearly_Success_Score'] = model.predict(X_test_imputed)
-            df.update(subset)
-
-    return df
-
-def fill_empty_success_scores(df):
-    """
-    Boş olan başarı skorlarını doldurur.
-    """
-    # Başarı skorlarını hesapla ve genel başarı skoru olarak ortalamalarını al
-    scores_columns = ['Format_score', 'Tür_score', 'Kanal_score', 'Yapım Şirketi_score',
-                      'Gösterim Süresi_score', 'Sezon Sayısı_score', 'Bölüm Sayısı_score', 'Yearly_Success_Score']
-    df['Overall_Success_Score'] = df[scores_columns].mean(axis=1) * 2  # Başarı skorlarını 2 ile çarp
-
-    return df
-
-def main():
-    # Excel dosyasından veriyi oku
-    df = pd.read_excel('turk_dizileri.xlsx')
-
-    # Eksik değerleri doldur (Adım 1'den)
-    df = impute_missing_values(df)
-
-    # Yapım yılına göre sırala (Adım 2'den)
-    df = sort_by_year(df)
-
-    # Kategorik ve sayısal sütunlar için başarı skorlarını hesapla (Adım 2'den)
-    df = calculate_score(df, 'Format')
-    df = calculate_score(df, 'Tür')
-    df = calculate_score(df, 'Kanal')
-    df = calculate_score(df, 'Yapım Şirketi')
-    df = calculate_numeric_score(df, 'Gösterim Süresi')
-    df = calculate_numeric_score(df, 'Sezon Sayısı')
-    df = calculate_numeric_score(df, 'Bölüm Sayısı')
-
-    # Yıllık karşılaştırma ve boş başarı skorları doldurma
-    df = calculate_yearly_comparison(df)
-    df = fill_empty_success_scores(df)
-
-    # Adım 4 ve 5: Skorları Yüzde Olarak Formatlama ve Sonuçları Kaydetme
-    df = format_success_percentage(df)
-    df[['Dizi Adı', 'Overall_Success_Score']].to_excel('Başarı_Yüzdeleri.xlsx', index=False)
-
-if __name__ == "__main__":
-    main()
+# Kaydetme işleminin tamamlandığını bildiren mesaj
+print(f"Excel dosyası '{excel_adı}' adıyla kaydedildi.")
