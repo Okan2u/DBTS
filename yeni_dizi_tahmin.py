@@ -3,9 +3,6 @@ from sklearn.linear_model import LinearRegression
 from sklearn.impute import SimpleImputer
 
 
-# ADIM 1: Fonksiyonları Tanımlama
-
-# Kategorik sütunlar için başarı skorlarını hesaplayan fonksiyon
 def calculate_score(df, column):
     scores = df[column].value_counts().to_dict()
     df[column + '_score'] = df[column].map(scores)
@@ -13,13 +10,11 @@ def calculate_score(df, column):
     return df
 
 
-# Sayısal sütunlar için başarı skorlarını hesaplayan fonksiyon
 def calculate_numeric_score(df, column):
     df[column + '_score'] = df[column] / df[column].max()
     return df
 
 
-# Eksik değerleri ortalama ile dolduran fonksiyon
 def impute_missing_values(df):
     numeric_columns = ['Gösterim Süresi', 'Sezon Sayısı', 'Bölüm Sayısı']
     imputer = SimpleImputer(strategy='mean')
@@ -27,7 +22,6 @@ def impute_missing_values(df):
     return df
 
 
-# Yıllık karşılaştırma yaparak boş başarı skorlarını dolduran fonksiyon
 def calculate_yearly_comparison(df):
     df['Yearly_Success_Score'] = 0.0
     imputer = SimpleImputer(strategy='mean')
@@ -58,9 +52,6 @@ def calculate_yearly_comparison(df):
     return df
 
 
-# ADIM 2: Genel Başarı Skorunu Hesaplayan ve Yeni Dizi Bilgilerini Ekleyen Fonksiyonlar
-
-# Başarı skorlarını genel başarı skoruna dönüştüren fonksiyon
 def fill_empty_success_scores(df):
     scores_columns = ['Format_score', 'Tür_score', 'Kanal_score', 'Yapım Şirketi_score',
                       'Gösterim Süresi_score', 'Sezon Sayısı_score', 'Bölüm Sayısı_score', 'Yearly_Success_Score']
@@ -68,16 +59,12 @@ def fill_empty_success_scores(df):
     return df
 
 
-# Başarı yüzdesini formatlayan fonksiyon
 def format_success_percentage(df):
     df[['Dizi Adı', 'Overall_Success_Score']] = df[['Dizi Adı', 'Overall_Success_Score']].astype(str)
-    df['Overall_Success_Score'] = (df['Overall_Success_Score'].astype(float) * 100).round(2).astype(str) + '%'
+    df['Overall_Success_Score'] = (df['Overall_Success_Score'].astype(float) * 200).round(2).astype(str) + '%'
     return df
 
 
-# ADIM 3: Yeni Dizi Başarı Yüzdesini Hesaplayan Fonksiyon
-
-# Yeni dizi bilgilerini ekleyip başarı yüzdesini hesaplayan fonksiyon
 def calculate_new_dizi_success_percentage(df, new_dizi):
     # Yeni dizi bilgilerini dataframe'e ekleme
     df = pd.concat([df, pd.DataFrame([new_dizi])], ignore_index=True)
@@ -116,9 +103,6 @@ def calculate_new_dizi_success_percentage(df, new_dizi):
     return success_percentage, durum
 
 
-# ADIM 4: Ana İşlevi Gerçekleştiren Fonksiyon
-
-# Ana işlemleri gerçekleştiren fonksiyon
 def main():
     df = pd.read_excel('turk_dizileri.xlsx')
 
@@ -151,10 +135,10 @@ def main():
         'Yapım Yılı': int(input('Yapım Yılı: '))
     }
 
-    success_percentage, durum = calculate_new_dizi_success_percentage(df, new_dizi)
-    print(f"{new_dizi['Dizi Adı']} için hesaplanan başarı yüzdesi: {success_percentage}%")
+    _, durum = calculate_new_dizi_success_percentage(df, new_dizi)
     print(f"Dizi Durumu: {durum}")
 
 
 if __name__ == "__main__":
     main()
+
